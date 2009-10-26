@@ -17,8 +17,25 @@ Capistrano::Configuration.instance.load do
   after 'deploy:update_code', 'deploy:symlink_shared'
   
   namespace :log do
+    desc "Get log file's analisis. Result will be downloaded to tmp/[rails_env].log_analysis.html" 
+    task :analysis, :roles => :app do
+      file_name  = 'request-log-analyzer.html'
+      local_file = "#{current_path}/log/#{file_name}"
+      run "request-log-analyzer #{shared_path}/log/#{rails_env}.log --file #{local_file} --output HTML"
+      
+      ENV['FILE'] = file_name
+      download
+      puts "Log analysis file downloaded to #{local_file}"
+    end
+    
+    desc "Download log file from a server. Usage: FILE='rails_env.log'" 
+    task :download, :roles => :app do
+      file = ENV['FILE'] || "#{rails_env}.log"
+      get "#{deploy_to}/current/log/#{file}", "log/#{rails_env}.#{file}" #download server log
+    end
+    
     desc "Tail log files. Usage: LOG='current_env.log' [LINES=50] [REAL_TIME=false]" 
-    task :apps, :roles => :app do
+    task :tail, :roles => :app do
       file = ENV['LOG'] || "#{rails_env}.log"
       run_tail "#{shared_path}/log/#{file}"
     end
@@ -56,7 +73,7 @@ Capistrano::Configuration.instance.load do
       end
 
       # Overwrite the default method
-      desc 'Tell Passenger to restart the app & restart God/AM Poller system'
+      desc 'Tell Passenger to restart the app.'
       task :restart, :roles => :app do
         run "touch #{current_path}/tmp/restart.txt"
       end
@@ -83,12 +100,9 @@ Capistrano::Configuration.instance.load do
     end
     
     def proceed_app_symlinks(symlns)
-      out = symlns.collect do |name|
-               "ln -sf #{shared_path}/#{name} #{release_path}/#{name}"
-             end.join(' && ')
-      run out
+      run symlns.collect{|name| "ln -sf #{shared_path}/#{name} #{release_path}/#{name}" }.join(' && ')
     end    
-  end
+  end  
 end
 
-# Copyright (c) 2009 Zhurbiy Oleg ( Ol.keene ), released under the MIT license
+# Copyright (c) 2009 Oleg Keene ( Ol.keene ), released under the MIT license
