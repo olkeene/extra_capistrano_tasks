@@ -102,6 +102,33 @@ Capistrano::Configuration.instance.load do
     def proceed_app_symlinks(symlns)
       run symlns.collect{|name| "ln -sf #{shared_path}/#{name} #{release_path}/#{name}" }.join(' && ')
     end    
+  end
+  
+  # Save capistrano output on deploy
+  alias :pputs :puts
+  def puts(str = "")
+    pputs(str)
+    $out << "#{str}"
+  end
+  
+  STDOUT.instance_eval do
+    alias :pputs :puts
+    def puts(str = "")
+      pputs(str)
+      $out << "#{str}"
+    end
+  end
+  
+  $stderr.instance_eval do
+    alias :pputs :puts
+    def puts(str = "")
+      pputs(str)
+      $out << "#{str}"
+    end
+  end
+  
+  task :write_deploy_log, :roles => :app, :except => {:no_release => true} do
+    put $out, "#{deploy_to}/current/deploy.log", :mode => 0644
   end  
 end
 
